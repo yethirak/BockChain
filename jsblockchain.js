@@ -1,10 +1,17 @@
 const SHA256 = require("crypto-js/sha256");
 
+class Transaction{
+    constructor(fromAddress, toAddress, amount){
+        this.fromAddress = fromAddress;
+        this.toAddress = toAddress;
+        this.amount = amount;
+    }
+}
+
 class Block{
-    constructor (index, timestamp, data, previoushHash = ''){
-        this.index = index;
+    constructor (timestamp, transactions, previoushHash = ''){
         this.timestamp = timestamp;
-        this.data = data;
+        this.transactions = transactions;
         this.previoushHash = previoushHash;
         this.hash = this.calculateHash();
         this.nonce = 0;
@@ -12,7 +19,7 @@ class Block{
 
     calculateHash(){
         //Use SHA256 cryptographic function for generating Hash
-        return SHA256(this.index+this.timestamp+this.previoushHash+JSON.stringify(this.data)+this.nonce).toString();
+        return SHA256(this.timestamp+this.previoushHash+JSON.stringify(this.transactions)+this.nonce).toString();
     }
 
     mineNewBlock(difficulty){
@@ -28,15 +35,27 @@ class BlockChain{
     constructor(){
         //first valiable inside the array will be genesis block
         this.chain = [this.createGenesisBlock()];
-        this.difficulty = 5;
+        this.difficulty = 2;
+        this.pendingTransactions = [];
+        this.miningReward = 10;
     }
 
     createGenesisBlock () {
-        return new Block(0, "01/01/2019", "This is a genesis block", "0")
+        return new Block("01/01/2019", "This is a genesis block", "0")
     }
 
     getLatestBlock(){
         return this.chain[this.chain.length-1];
+    }
+
+    minePendingTransactions(miningRewardAddress){
+        let block = new Block(Date.now(), this.pendingTransactions, this.getLatestBlock().hash);
+        block.mineNewBlock(this.difficulty);
+        console.log("mined successfully");
+        this.chain.push(block);
+        this.pendingTransactions = [
+            new Transaction(null, miningRewardAddress,this.miningReward)
+        ];
     }
 
     addBlock(newBlock){
@@ -44,6 +63,29 @@ class BlockChain{
         //Replace hash function with mine function  newBlock.hash = newBlock.calculateHash();
         newBlock.mineNewBlock(this.difficulty);
         this.chain.push(newBlock);
+    }
+
+    createTransation(transaction){
+        this.pendingTransactions.push(transaction);
+    }
+
+    getBalanceOfAddress(address){
+        let balance = 0;
+        // this.chain.forEach(block => {
+        for(const block of this.chain){
+            // block.transactions.forEach(trans => {
+            for(const trans of block.transactions){
+                if (trans.fromAddress === address) {
+                    balance = balance - trans.amount;
+                }
+                if (trans.toAddress === address) {
+                    balance = balance + trans.amount;
+                }
+            }
+            // });
+        }
+        // });
+        return balance;
     }
 
     checkBlockChainValid(){
@@ -66,19 +108,25 @@ class BlockChain{
 
 }
 
-// creating two new blocks
-let block1 = new Block(1,"02/01/2019",{mybalance : 100});
-let block2 = new Block(2,"03/01/2019",{mybalance : 50});
+let bitcoin = new BlockChain();
 
-// creating new block chain
-let myBlockChain = new BlockChain();
+transaction1 = new Transaction("Tom", "Jerry", 100);
+bitcoin.createTransation(transaction1);
 
-// adding new the blocks to block chain
-myBlockChain.addBlock(block1);
-myBlockChain.addBlock(block2);
+transaction2 = new Transaction("Jerry", "Tom", 30);
+bitcoin.createTransation(transaction2);
 
-console.log(JSON.stringify(myBlockChain, null, 4));
-console.log("validation check for the BlockChain: "+myBlockChain.checkBlockChainValid());
+console.log("Stating mining for pending transactions");
+bitcoin.minePendingTransactions("Donald");
 
-// myBlockChain.chain[1].data = {mybalance: 5000};
-// console.log("validation check for the BlockChain: "+myBlockChain.checkBlockChainValid());
+
+console.log("bitcoin: "+JSON.stringify(bitcoin));
+
+console.log("Balance for Tom is "+bitcoin.getBalanceOfAddress("Tom"));
+console.log("Balance for Jerry is "+bitcoin.getBalanceOfAddress("Jerry"));
+console.log("Balance for Donald is "+bitcoin.getBalanceOfAddress("Donald"));
+
+console.log("Starting mining rewarded pending Transaction");
+
+bitcoin.minePendingTransactions("Donald");
+console.log("Balance for Donald is "+bitcoin.getBalanceOfAddress("Donald"));
